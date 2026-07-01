@@ -12,3 +12,5 @@
 - IV. Cree archivo "__init__.py" para que python reconosca el modulo.
 - V. Cree archivo "conexion_bd.py" para en un futuro conectar la base de datos
 - VI. Cree carpeta "modelos" para colocar los modelos de la app (factura, clientes, transacciones).
+- VII. Cree los archivos modelos en carpetas modelos "clientes.py", "facturas.py", "transacciones.py".
+- VIII. Coloque el codigo base de cada modelo.
