@@ -16,3 +16,7 @@
 - VIII. Coloque el codigo base de cada modelo.
 - IX. Cree la carpeta "Enrutador" para los endpoints de API
 - X. Cree los archios .py correspondientes a la carpeta enrutador "clientes.py", "facturas.py", "transacciones.py"
+- XI. Cree el entorno virtual (python3 -m venv venv)
+- XII. Cree el archivo de listas de clientes "listas_app.py"
+- XIII. Movi cada modelo a su respectivo archivo .py en la carpeta enrutador
+- XIV. Por cada modelo importe sus respectivas clases
