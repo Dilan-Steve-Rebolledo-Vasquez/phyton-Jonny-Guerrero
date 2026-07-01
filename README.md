@@ -14,3 +14,5 @@
 - VI. Cree carpeta "modelos" para colocar los modelos de la app (factura, clientes, transacciones).
 - VII. Cree los archivos modelos en carpetas modelos "clientes.py", "facturas.py", "transacciones.py".
 - VIII. Coloque el codigo base de cada modelo.
+- IX. Cree la carpeta "Enrutador" para los endpoints de API
+- X. Cree los archios .py correspondientes a la carpeta enrutador "clientes.py", "facturas.py", "transacciones.py"
