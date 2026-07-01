@@ -9,11 +9,11 @@ from sqlmodel import SQLModel, Field, Relationship
 #     edad: int = Field(default=None)
 
 
-class ClienteBase(BaseModel):
+class ClienteBase(SQLModel):
     # atributos
     nombre: str
     edad: int
-    descripcion: str | None
+    descripcion: str | None = None
 
 
 class ClienteCrear(ClienteBase):
@@ -24,5 +24,5 @@ class ClienteEditar(ClienteBase):
     pass
 
 
-class Cliente(ClienteBase):
-    id: int | None = None
+class Cliente(ClienteBase, table=True):
+    id: int | None = Field(default=None, primary_key=True)

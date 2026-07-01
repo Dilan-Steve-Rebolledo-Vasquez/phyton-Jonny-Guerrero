@@ -1,12 +1,11 @@
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
+from sqlmodel import select
 
-from ..listas_app import (
-    lista_clientes,
-    lista_facturas,
-    lista_transacciones
-)
+from ..conexion_bd import Sesion_dependencia
+
+from ..modelos.clientes import Cliente
 
 from ..modelos.facturas import (
     Factura,
@@ -26,17 +25,27 @@ ruta_transacciones = APIRouter()
     "/transacciones",
     response_model=list[Transacciones]
 )
-async def listar_transacciones():
-    return lista_transacciones
+async def listar_transacciones(
+    sesion: Sesion_dependencia
+):
+    return sesion.exec(
+        select(Transacciones)
+    ).all()
 
 
 @ruta_transacciones.get("/transacciones/{id}")
-async def obtener_transaccion(id: int):
+async def obtener_transaccion(
+    id: int,
+    sesion: Sesion_dependencia
+):
 
-    for transaccion in lista_transacciones:
+    transaccion = sesion.get(
+        Transacciones,
+        id
+    )
 
-        if transaccion.id == id:
-            return transaccion
+    if transaccion:
+        return transaccion
 
     return {
         "mensaje": f"No existe transaccion con id {id}"
@@ -47,16 +56,14 @@ async def obtener_transaccion(id: int):
 async def crear_transaccion(
     factura_id: int,
     datos_transaccion: TransaccionesCrear,
-    cliente_id: int
+    cliente_id: int,
+    sesion: Sesion_dependencia
 ):
 
-    cliente_encontrado = None
-
-    for c in lista_clientes:
-
-        if c.id == cliente_id:
-            cliente_encontrado = c
-            break
+    cliente_encontrado = sesion.get(
+        Cliente,
+        cliente_id
+    )
 
     if not cliente_encontrado:
 
@@ -65,64 +72,74 @@ async def crear_transaccion(
             detail=f"No existe cliente con id {cliente_id}"
         )
 
-    factura_encontrada = None
-
-    for f in lista_facturas:
-
-        if f.id == factura_id:
-            factura_encontrada = f
-            break
+    factura_encontrada = sesion.get(
+        Factura,
+        factura_id
+    )
 
     if factura_encontrada:
 
-        if factura_encontrada.cliente.id == cliente_id:
+        if factura_encontrada.cliente_id == cliente_id:
 
             transaccion_val = Transacciones.model_validate(
                 datos_transaccion.model_dump()
             )
 
-            transaccion_val.id = len(lista_transacciones) + 1
             transaccion_val.factura_id = factura_id
 
-            lista_transacciones.append(
+            sesion.add(
                 transaccion_val
             )
 
-            factura_encontrada.transacciones.append(
+            sesion.commit()
+
+            sesion.refresh(
                 transaccion_val
             )
 
             return {
-                "mensaje": f"Transaccion agregada a factura {factura_encontrada.id}",
-                "factura": factura_encontrada
+                "mensaje": f"Transaccion agregada a factura {factura_id}",
+                "transaccion": transaccion_val
             }
 
         return {
-            "mensaje": "La factura pertenece a otro cliente",
-            "factura": factura_encontrada
+            "mensaje": "La factura pertenece a otro cliente"
         }
 
     transaccion_val = Transacciones.model_validate(
         datos_transaccion.model_dump()
     )
 
-    transaccion_val.id = len(lista_transacciones) + 1
-    transaccion_val.factura_id = len(lista_facturas) + 1
-
     factura = FacturaCrear(
-        cliente=cliente_encontrado,
-        fecha=str(datetime.now()),
-        transacciones=[transaccion_val]
+        cliente_id=cliente_id,
+        fecha=str(datetime.now())
     )
 
     factura_val = Factura.model_validate(
         factura.model_dump()
     )
 
-    factura_val.id = len(lista_facturas) + 1
+    sesion.add(
+        factura_val
+    )
 
-    lista_facturas.append(factura_val)
-    lista_transacciones.append(transaccion_val)
+    sesion.commit()
+
+    sesion.refresh(
+        factura_val
+    )
+
+    transaccion_val.factura_id = factura_val.id
+
+    sesion.add(
+        transaccion_val
+    )
+
+    sesion.commit()
+
+    sesion.refresh(
+        transaccion_val
+    )
 
     return {
         "mensaje": "Factura creada automáticamente",
@@ -133,46 +150,65 @@ async def crear_transaccion(
 @ruta_transacciones.put("/transacciones/{id}")
 async def editar_transaccion(
     id: int,
-    datos_transaccion: TransaccionesEditar
+    datos_transaccion: TransaccionesEditar,
+    sesion: Sesion_dependencia
 ):
 
-    for i, transaccion in enumerate(lista_transacciones):
+    transaccion = sesion.get(
+        Transacciones,
+        id
+    )
 
-        if transaccion.id == id:
+    if not transaccion:
 
-            transaccion_editada = Transacciones.model_validate(
-                datos_transaccion.model_dump()
-            )
+        return {
+            "mensaje": f"No existe transaccion con id {id}"
+        }
 
-            transaccion_editada.id = id
-            transaccion_editada.factura_id = transaccion.factura_id
+    transaccion.cantidad = datos_transaccion.cantidad
+    transaccion.vr_unitario = datos_transaccion.vr_unitario
+    transaccion.descripcion = datos_transaccion.descripcion
 
-            lista_transacciones[i] = transaccion_editada
+    sesion.add(
+        transaccion
+    )
 
-            return {
-                "mensaje": "Transaccion actualizada correctamente",
-                "transaccion": transaccion_editada
-            }
+    sesion.commit()
+
+    sesion.refresh(
+        transaccion
+    )
 
     return {
-        "mensaje": f"No existe transaccion con id {id}"
+        "mensaje": "Transaccion actualizada correctamente",
+        "transaccion": transaccion
     }
 
 
 @ruta_transacciones.delete("/transacciones/{id}")
-async def eliminar_transaccion(id: int):
+async def eliminar_transaccion(
+    id: int,
+    sesion: Sesion_dependencia
+):
 
-    for i, transaccion in enumerate(lista_transacciones):
+    transaccion = sesion.get(
+        Transacciones,
+        id
+    )
 
-        if transaccion.id == id:
+    if not transaccion:
 
-            transaccion_eliminada = lista_transacciones.pop(i)
+        return {
+            "mensaje": f"No existe transaccion con id {id}"
+        }
 
-            return {
-                "mensaje": "Transaccion eliminada correctamente",
-                "transaccion": transaccion_eliminada
-            }
+    sesion.delete(
+        transaccion
+    )
+
+    sesion.commit()
 
     return {
-        "mensaje": f"No existe transaccion con id {id}"
+        "mensaje": "Transaccion eliminada correctamente",
+        "transaccion": transaccion
     }

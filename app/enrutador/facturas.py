@@ -1,10 +1,10 @@
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
+from sqlmodel import select
 
-from ..listas_app import (
-    lista_clientes,
-    lista_facturas
-)
+from ..conexion_bd import Sesion_dependencia
+
+from ..modelos.clientes import Cliente
 
 from ..modelos.facturas import (
     Factura,
@@ -20,18 +20,29 @@ ruta_facturas = APIRouter()
     "/facturas",
     response_model=list[Factura]
 )
-async def listar_facturas():
-    return lista_facturas
+async def listar_facturas(
+    sesion: Sesion_dependencia
+):
+
+    return sesion.exec(
+        select(Factura)
+    ).all()
 
 
 # GET FACTURA POR ID
 @ruta_facturas.get("/facturas/{id}")
-async def obtener_factura(id: int):
+async def obtener_factura(
+    id: int,
+    sesion: Sesion_dependencia
+):
 
-    for factura in lista_facturas:
+    factura = sesion.get(
+        Factura,
+        id
+    )
 
-        if factura.id == id:
-            return factura
+    if factura:
+        return factura
 
     return {
         "mensaje": f"No existe factura con id {id}"
@@ -45,16 +56,14 @@ async def obtener_factura(id: int):
 )
 async def crear_facturas(
     cliente_id: int,
-    datos_factura: FacturaCrear
+    datos_factura: FacturaCrear,
+    sesion: Sesion_dependencia
 ):
 
-    cliente_encontrado = None
-
-    for cliente in lista_clientes:
-
-        if cliente.id == cliente_id:
-            cliente_encontrado = cliente
-            break
+    cliente_encontrado = sesion.get(
+        Cliente,
+        cliente_id
+    )
 
     if not cliente_encontrado:
 
@@ -67,11 +76,21 @@ async def crear_facturas(
         datos_factura.model_dump()
     )
 
-    factura_val.id = len(lista_facturas) + 1
-    factura_val.fecha = str(datetime.now())
-    factura_val.cliente = cliente_encontrado
+    factura_val.fecha = str(
+        datetime.now()
+    )
 
-    lista_facturas.append(factura_val)
+    factura_val.cliente_id = cliente_id
+
+    sesion.add(
+        factura_val
+    )
+
+    sesion.commit()
+
+    sesion.refresh(
+        factura_val
+    )
 
     return factura_val
 
@@ -80,46 +99,65 @@ async def crear_facturas(
 @ruta_facturas.put("/facturas/{id}")
 async def editar_factura(
     id: int,
-    datos_factura: FacturaEditar
+    datos_factura: FacturaEditar,
+    sesion: Sesion_dependencia
 ):
 
-    for i, factura in enumerate(lista_facturas):
+    factura = sesion.get(
+        Factura,
+        id
+    )
 
-        if factura.id == id:
+    if not factura:
 
-            factura_editada = Factura.model_validate(
-                datos_factura.model_dump()
-            )
+        return {
+            "mensaje": f"No existe factura con id {id}"
+        }
 
-            factura_editada.id = id
+    factura.fecha = datos_factura.fecha
+    factura.cliente_id = datos_factura.cliente_id
 
-            lista_facturas[i] = factura_editada
+    sesion.add(
+        factura
+    )
 
-            return {
-                "mensaje": "Factura actualizada correctamente",
-                "factura": factura_editada
-            }
+    sesion.commit()
+
+    sesion.refresh(
+        factura
+    )
 
     return {
-        "mensaje": f"No existe factura con id {id}"
+        "mensaje": "Factura actualizada correctamente",
+        "factura": factura
     }
 
 
 # DELETE FACTURA
 @ruta_facturas.delete("/facturas/{id}")
-async def eliminar_factura(id: int):
+async def eliminar_factura(
+    id: int,
+    sesion: Sesion_dependencia
+):
 
-    for i, factura in enumerate(lista_facturas):
+    factura = sesion.get(
+        Factura,
+        id
+    )
 
-        if factura.id == id:
+    if not factura:
 
-            factura_eliminada = lista_facturas.pop(i)
+        return {
+            "mensaje": f"No existe factura con id {id}"
+        }
 
-            return {
-                "mensaje": "Factura eliminada correctamente",
-                "factura": factura_eliminada
-            }
+    sesion.delete(
+        factura
+    )
+
+    sesion.commit()
 
     return {
-        "mensaje": f"No existe factura con id {id}"
+        "mensaje": "Factura eliminada correctamente",
+        "factura": factura
     }
