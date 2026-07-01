@@ -6,6 +6,6 @@
 
 # Pasos Realizados
 
-I. Cree el README con mis datos personales y para anotar pasos que he realizado
-II. Cree la carpeta principal de la aplicacion "app"
-III. Cree archivo "main.py" y puse el codigo Base
+- I. Cree el README con mis datos personales y para anotar pasos que he realizado.
+- II. Cree la carpeta principal de la aplicacion "app".
+- III. Cree archivo "main.py" y puse el codigo Base.
