@@ -1,30 +1,15 @@
+from typing import Optional
 from sqlmodel import SQLModel, Field
-from pydantic import computed_field
+from datetime import date 
 
+# Este modelo controla lo que pide Swagger al CREAR (Solo cliente y fecha)
+class FacturaCrear(SQLModel):
+    cliente_id: int = Field(foreign_key="cliente.id")
+    fecha: date = Field()
 
-class FacturaBase(SQLModel):
+# Este modelo mapea la tabla exacta en PostgreSQL
+class Factura(FacturaCrear, table=True):
+    __tablename__: str = "factura"
 
-    fecha: str
-
-    cliente_id: int
-
-    @computed_field
-    @property
-    def valor_total(self) -> float:
-        return 0.0
-
-
-class FacturaCrear(FacturaBase):
-    pass
-
-
-class FacturaEditar(FacturaBase):
-    pass
-
-
-class Factura(FacturaBase, table=True):
-
-    id: int | None = Field(
-        default=None,
-        primary_key=True
-    )
+    id: Optional[int] = Field(default=None, primary_key=True)
+    valor_total: float = Field(default=0)

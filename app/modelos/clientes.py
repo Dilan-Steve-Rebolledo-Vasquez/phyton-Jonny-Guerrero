@@ -1,28 +1,16 @@
-from pydantic import BaseModel
-
-# por continuar la explicacion
-from sqlmodel import SQLModel, Field, Relationship
-
-# tabla de ejemplo
-# class ClienteEjemplo(SQLModel, table=True):
-#     nombre: str = Field(default=None)
-#     edad: int = Field(default=None)
-
+from sqlmodel import Field, SQLModel
 
 class ClienteBase(SQLModel):
-    # atributos
     nombre: str
     edad: int
     descripcion: str | None = None
 
+class Cliente(ClienteBase, table=True):
+    __tablename__ = "cliente"  # Forzamos el nombre exacto de la tabla en PostgreSQL
+    id: int | None = Field(default=None, primary_key=True)
 
 class ClienteCrear(ClienteBase):
     pass
 
-
 class ClienteEditar(ClienteBase):
     pass
-
-
-class Cliente(ClienteBase, table=True):
-    id: int | None = Field(default=None, primary_key=True)

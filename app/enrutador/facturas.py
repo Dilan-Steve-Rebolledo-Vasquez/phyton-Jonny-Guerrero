@@ -1,163 +1,60 @@
-from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from sqlmodel import select
-
 from ..conexion_bd import Sesion_dependencia
+from ..modelos.facturas import Factura, FacturaCrear
+from ..modelos.transacciones import Transacciones 
 
-from ..modelos.clientes import Cliente
+ruta_facturas = APIRouter(tags=["Facturas"])
 
-from ..modelos.facturas import (
-    Factura,
-    FacturaCrear,
-    FacturaEditar
-)
+# 1. LISTAR TODAS LAS FACTURAS (Vuelve a ser el código original que sí funcionaba)
+@ruta_facturas.get("/facturas")
+async def listar_facturas(sesion: Sesion_dependencia):
+    facturas = sesion.exec(select(Factura).order_by(Factura.id)).all()
+    return facturas
 
-ruta_facturas = APIRouter()
-
-
-# GET TODAS LAS FACTURAS
-@ruta_facturas.get(
-    "/facturas",
-    response_model=list[Factura]
-)
-async def listar_facturas(
-    sesion: Sesion_dependencia
-):
-
-    return sesion.exec(
-        select(Factura)
-    ).all()
-
-
-# GET FACTURA POR ID
+# 2. BUSCAR UNA FACTURA POR ID
 @ruta_facturas.get("/facturas/{id}")
-async def obtener_factura(
-    id: int,
-    sesion: Sesion_dependencia
-):
-
-    factura = sesion.get(
-        Factura,
-        id
-    )
-
-    if factura:
-        return factura
-
-    return {
-        "mensaje": f"No existe factura con id {id}"
-    }
-
-
-# POST CREAR FACTURA
-@ruta_facturas.post(
-    "/facturas/{cliente_id}",
-    response_model=Factura
-)
-async def crear_facturas(
-    cliente_id: int,
-    datos_factura: FacturaCrear,
-    sesion: Sesion_dependencia
-):
-
-    cliente_encontrado = sesion.get(
-        Cliente,
-        cliente_id
-    )
-
-    if not cliente_encontrado:
-
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cliente con id {cliente_id} no existe"
-        )
-
-    factura_val = Factura.model_validate(
-        datos_factura.model_dump()
-    )
-
-    factura_val.fecha = str(
-        datetime.now()
-    )
-
-    factura_val.cliente_id = cliente_id
-
-    sesion.add(
-        factura_val
-    )
-
-    sesion.commit()
-
-    sesion.refresh(
-        factura_val
-    )
-
-    return factura_val
-
-
-# PUT EDITAR FACTURA
-@ruta_facturas.put("/facturas/{id}")
-async def editar_factura(
-    id: int,
-    datos_factura: FacturaEditar,
-    sesion: Sesion_dependencia
-):
-
-    factura = sesion.get(
-        Factura,
-        id
-    )
-
+async def obtener_factura(id: int, sesion: Sesion_dependencia):
+    factura = sesion.get(Factura, id)
     if not factura:
+        raise HTTPException(status_code=404, detail="Factura no encontrada")
+    return factura
 
-        return {
-            "mensaje": f"No existe factura con id {id}"
-        }
-
-    factura.fecha = datos_factura.fecha
-    factura.cliente_id = datos_factura.cliente_id
-
-    sesion.add(
-        factura
-    )
-
+# 3. CREAR UNA FACTURA (Usa FacturaCrear: solo te pedirá cliente_id y fecha)
+@ruta_facturas.post("/facturas")
+async def crear_factura(datos: FacturaCrear, sesion: Sesion_dependencia):
+    datos_dict = datos.model_dump()
+    
+    # El valor total se inicializa en 0 de forma automática
+    datos_dict["valor_total"] = 0
+    
+    nueva_factura = Factura(**datos_dict)
+    
+    sesion.add(nueva_factura)
     sesion.commit()
-
-    sesion.refresh(
-        factura
-    )
-
+    sesion.refresh(nueva_factura)
     return {
-        "mensaje": "Factura actualizada correctamente",
-        "factura": factura
+        "mensaje": "Factura creada con éxito",
+        "factura": nueva_factura
     }
 
-
-# DELETE FACTURA
+# 4. ELIMINAR UNA FACTURA (Mantiene el mensaje controlado en español)
 @ruta_facturas.delete("/facturas/{id}")
-async def eliminar_factura(
-    id: int,
-    sesion: Sesion_dependencia
-):
-
-    factura = sesion.get(
-        Factura,
-        id
-    )
-
+async def eliminar_factura(id: int, sesion: Sesion_dependencia):
+    factura = sesion.get(Factura, id)
     if not factura:
-
-        return {
-            "mensaje": f"No existe factura con id {id}"
-        }
-
-    sesion.delete(
-        factura
-    )
-
+        raise HTTPException(status_code=404, detail="Factura no encontrada")
+    
+    # Validamos relación con transacciones antes de borrar
+    declaracion = select(Transacciones).where(Transacciones.factura_id == id)
+    tiene_transacciones = sesion.exec(declaracion).first()
+    
+    if tiene_transacciones:
+        raise HTTPException(
+            status_code=400, 
+            detail="No se puede eliminar la factura porque tiene transacciones relacionadas en el sistema. Elimina primero sus transacciones."
+        )
+    
+    sesion.delete(factura)
     sesion.commit()
-
-    return {
-        "mensaje": "Factura eliminada correctamente",
-        "factura": factura
-    }
+    return {"mensaje": f"Factura con ID {id} eliminada con éxito"}

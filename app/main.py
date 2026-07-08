@@ -1,30 +1,20 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from sqlmodel import SQLModel
 
-from .enrutador import clientes
-from .enrutador import facturas
-from .enrutador import transacciones
-from .conexion_bd import crear_bd
-from .modelos.clientes import Cliente
-from .modelos.facturas import Factura
-from .modelos.transacciones import Transacciones
+from .conexion_bd import engine
+from .enrutador.clientes import ruta_clientes
+from .enrutador.facturas import ruta_facturas
+from .enrutador.transacciones import ruta_transacciones
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    SQLModel.metadata.create_all(engine)
+    yield
 
-@app.on_event("startup")
-def iniciar_bd():
-    crear_bd()
+app = FastAPI(lifespan=lifespan)
 
-app.include_router(
-    clientes.ruta_clientes,
-    tags=["Clientes"]
-)
-
-app.include_router(
-    facturas.ruta_facturas,
-    tags=["Facturas"]
-)
-
-app.include_router(
-    transacciones.ruta_transacciones,
-    tags=["Transacciones"]
-)
+# Registrar enrutadores independientes
+app.include_router(ruta_clientes)
+app.include_router(ruta_facturas)
+app.include_router(ruta_transacciones)
