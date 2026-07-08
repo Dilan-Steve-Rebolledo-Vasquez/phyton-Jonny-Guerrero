@@ -27,4 +27,4 @@
 - XIX. Importe las tablas en "main.py".
 - XX. Asigne clientes como tablas
 - XXI. Cambien la herencia por SQLModel
-- XXII. Conexion con BD
+- XXII. Conexion con BD postgres
